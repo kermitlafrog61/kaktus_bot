@@ -15,7 +15,7 @@ bot = telebot.TeleBot(token)
 date_now = date.today()
 
 
-def get_raw_news(date_:date=date_now, number:int=20) -> dict[str, ResultSet[Tag]]:
+def get_raw_news(date_:date=date_now, number:int=20) -> dict[tuple[str, str], ResultSet[Tag]]:
     """ recieves date and number of news
 
     """
@@ -24,10 +24,11 @@ def get_raw_news(date_:date=date_now, number:int=20) -> dict[str, ResultSet[Tag]
     )
     soup = BeautifulSoup(html.text, 'lxml')
     cards = soup.find_all('div', 'ArticleItem--data ArticleItem--data--withImage')[:number]
-    return {(f'news{id}', card.find('a', class_ = 'ArticleItem--name').text.strip()) : card for id, card in enumerate(cards, start=1)}
+    return {(f'news{id}', card.find('a', class_ = 'ArticleItem--name').text.strip())
+    : card for id, card in enumerate(cards, start=1)}
 
 
-def get_news20(news:dict[str, ResultSet[Tag]]) -> dict[str, ResultSet[Tag]]:
+def get_news20(news:dict[tuple[str, str], ResultSet[Tag]]) -> dict[tuple[str, str], ResultSet[Tag]]:
     """ recieves raw news dict and returns exactly 20 last news
     
     """
@@ -41,6 +42,7 @@ def get_news20(news:dict[str, ResultSet[Tag]]) -> dict[str, ResultSet[Tag]]:
 
 news = get_news20(get_raw_news())
 
+
 @bot.message_handler(commands=['start'])
 def start_news(message: types.Message):
     """ reacts to start command and sends last news
@@ -51,19 +53,20 @@ def start_news(message: types.Message):
         inline_button = types.InlineKeyboardButton(title, callback_data=id)
         markup.add(inline_button)
     bot.send_message(message.chat.id, 'Greetings', reply_markup=goodbye)
-    bot.send_message(message.chat.id, 'Here I have last 20 news from kaktus', reply_markup=markup)
+    bot.send_message(message.chat.id, 'Here I have last 20 news from kaktus',
+    reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda callback: callback.data in [key[0] for key in news])
 def message_news(callback: types.CallbackQuery):
     """ reacts after certain news button was pressed
     
     sends news title, url and buttons
-    
+
     """
+    markup = types.InlineKeyboardMarkup()
     for key, tag in news.items():
         if key[0] == callback.data:
             url =tag.find('a', class_ = 'ArticleItem--name').get('href')
-            markup = types.InlineKeyboardMarkup()
             markup.row(types.InlineKeyboardButton(text="Description", callback_data=f"{key[0]}desc"),
                        types.InlineKeyboardButton(text="Photo", callback_data=f"{key[0]}photo"))
             bot.send_message(callback.message.chat.id, f'{key[1]}\n{url}', reply_markup=markup)
